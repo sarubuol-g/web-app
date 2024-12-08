@@ -1,41 +1,56 @@
-node("")
-{
- def MHD = tool name:"maven3.9.8"
- stage('Initiation'){
-    sh "echo Start of Paypal Build Application"
+pipeline{
+    agent any
+    tools{
+      maven "maven3.9.8"
+    }
+    
+stages{
+  stage('1.GitClone'){
+  steps{
+    sh "echo Github cloning"
+        git "https://github.com/sarubuol-g/web-app.git"
   }
-stage ("1.Gitclone"){
-    sh "echo start git clone"
-    git "https://github.com/sarubuol-g/web-app.git"
 }
-stage('3.Build'){
-    sh "echo Build package"
-    sh "${MHD}/bin/mvn package"
+stage('2.MavenBuild'){
+  steps{
+  sh "echo build packages"
+  sh "mvn clean package"
+}
+}
+stage('3.testingtheCode'){
+  steps{
+    sh "mvn sonar:sonar"
   }
-  stage('4.CodeQualitytest'){
-    sh "echo Testing code"
-    sh "${MHD}/bin/mvn sonar:sonar"
   }
-  stage('5.BackupArtifacts'){
-    //sh "echo Backup Artifacts"
-   // sh "${MHD}/bin/mvn deploy"
+stage('4.backupArchitfacts'){
+  steps{
+    sh "mvn deploy"
   }
-  stage("6.UATDeployment"){
-      sh "echo deploying to application server"
+  }
+ stage('5.DeploytoUAT'){
+     steps{
 deploy adapters: [tomcat9(credentialsId: '12d33ec5-1453-4548-900e-5da64c8053ce', path: '', url: 'http://3.93.193.177:8080/')], contextPath: null, war: 'target/*.war'  
+
+     }
+ }
+ stage('6.Approval'){
+    steps{
+    sh "echo Approval Needed"
+    timeout(time:5,unit:'DAYS'){
+      input message:'Approval for Production'
     }
-    stage("7.Manual Approval"){
-        sh "echo Approval Needed"
-        timeout(time:5, unit:'DAYS'){
-         input message: 'Approval for Production'
-    }
-    }
-    stage("8.ProdDeployment"){
-      sh "echo deploying to application server"
+  }
+}
+ stage('7.Deploytostaging'){
+     steps{
 deploy adapters: [tomcat9(credentialsId: '12d33ec5-1453-4548-900e-5da64c8053ce', path: '', url: 'http://3.93.193.177:8080/')], contextPath: null, war: 'target/*.war'  
-    }
-    stage("9.Email Notification"){
-      sh "echo send email notification to Devops team"
+
+     }
+ }
+ stage('8.Emailnotification'){
+  steps{
       emailext body: 'This is Build Success', subject: 'Build Success', to: 's_arubuola@outlook.com'
-    }
+  }
+ }
+}
 }
